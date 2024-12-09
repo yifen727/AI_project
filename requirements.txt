@@ -1,0 +1,6 @@
+darts
+matplotlib
+numpy
+pandas
+pandas_ta
+scikit_learn
