@@ -75,7 +75,7 @@ def train_one_epoch(model, train_loader, loss_function, optimizer, device, epoch
             running_loss = 0.0
     print()
 
-def validate_one_epoch(model, test_loader, loss_function, device):
+def test_one_epoch(model, test_loader, loss_function, device):
     model.train(False)
     running_loss = 0.0
 
@@ -89,14 +89,14 @@ def validate_one_epoch(model, test_loader, loss_function, device):
 
     avg_loss_across_batches = running_loss / len(test_loader)
 
-    print('Val Loss: {0:.3f}'.format(avg_loss_across_batches))
+    print('Test Loss: {0:.3f}'.format(avg_loss_across_batches))
     print('***************************************************')
     print()
 
 def main():
-    origin_data = pd.read_csv('taiwan_mobile_stock_data_cleaned.csv')
+    origin_data = pd.read_csv('/datas/store163/othsueh/stock_predict/AI_project/china_steel_wavelet_reconstructed_only.csv')
     # For wavlet datas
-    # origin_data.rename(columns={'Close Reconstructed': 'Close'}, inplace=True)
+    origin_data.rename(columns={'Close Reconstructed': 'Close'}, inplace=True)
     data = origin_data[['Date', 'Close']]
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     data['Date'] = pd.to_datetime(data['Date'])
@@ -117,7 +117,7 @@ def main():
 
     # Split the data into train and test
     # toggle the #* line as comment If want to predict future price, use all data as train data
-    # split_index = int(len(X) * 0.95) #*
+    # split_index = int(len(X) * 0.9) #*
     # X_train = X[:split_index]
     # X_test = X[split_index:] #*
 
@@ -155,31 +155,51 @@ def main():
 
     for epoch in range(num_epochs):
         train_one_epoch(model, train_loader, loss_function, optimizer, device, epoch)
-        # validate_one_epoch(model, test_loader, loss_function, device) #*
+    # test_one_epoch(model, test_loader, loss_function, device) 
     
     with torch.no_grad():
-        predicted = model(X_train.to(device)).to('cpu').numpy()
-    train_predictions = predicted.flatten()
+        train_predicted = model(X_train.to(device)).to('cpu').numpy()
+        # test_predicted = model(X_test.to(device)).to('cpu').numpy() #*
+
+    train_predictions = train_predicted.flatten()
+    # test_predictions = test_predicted.flatten() #*
 
     dummies = np.zeros((X_train.shape[0], lookback+1))
     dummies[:, 0] = train_predictions
     dummies = scaler.inverse_transform(dummies)
-
     train_predictions = dc(dummies[:, 0])
 
+    # dummies = np.zeros((X_test.shape[0], lookback+1))
+    # dummies[:, 0] = test_predictions
+    # dummies = scaler.inverse_transform(dummies)
+    # test_predictions = dc(dummies[:, 0])
 
     dummies = np.zeros((X_train.shape[0], lookback+1))
     dummies[:, 0] = y_train.flatten()
     dummies = scaler.inverse_transform(dummies)
+    train_actual = dc(dummies[:, 0])
+    
+    # dummies = np.zeros((X_test.shape[0], lookback+1))
+    # dummies[:, 0] = y_test.flatten()
+    # dummies = scaler.inverse_transform(dummies)
+    # test_actual = dc(dummies[:, 0])
 
-    new_y_train = dc(dummies[:, 0])
+    dates = shifted_df.index
+    # train_dates = dates[:split_index]
+    # test_dates = dates[split_index:]
 
-    plt.plot(new_y_train, label='Actual Close')
-    plt.plot(train_predictions, label='Predicted Close')
-    plt.xlabel('Day')
-    plt.ylabel('Close')
-    plt.legend()
-    plt.savefig('result_LSTM/LSTM_train.png')
+    # plt.figure(figsize=(9, 6))
+    # plt.plot(train_dates, train_actual, label='Train Actual')
+    # plt.plot(train_dates, train_predictions, label='Train Predicted')
+    # plt.plot(test_dates, test_actual, label='Test Actual')
+    # plt.plot(test_dates, test_predictions, label='Test Predicted')
+    # plt.xlabel('Date')
+    # plt.ylabel('Close Price')
+    # plt.title('Stock Price Prediction - Testing Results')
+    # plt.legend()
+    # plt.xticks(rotation=45)
+    # plt.tight_layout()
+    # plt.savefig('result_LSTM/LSTM_test.png')
 
     # Get the last 7 days of data to use as input for future predictions
     last_7_days = X_train[-1:].to(device)  # Shape: [1, 7, 1]
@@ -211,34 +231,35 @@ def main():
     # Create prediction results dataframe
     future_df = pd.DataFrame({
         'Date': future_dates,
-        'Predicted_Close': future_predictions_unscaled
+        'Predicted Close': future_predictions_unscaled
     })
 
     print("Future 5 business days predictions:")
     print(future_df)
+    future_df.to_csv('result_LSTM/ChinaSteel_predict.csv', index=False)
 
     # Calculate and print MSE for training and test sets
-    actual_future_values = [22.5, 22.5, 22.5, 22.5, 22.5]  # Actual future values for next 5 business days
-    future_df['Actual_Close'] = actual_future_values
+    # actual_future_values = [22.5, 22.5, 22.5, 22.5, 22.5]  # Actual future values for next 5 business days
+    # future_df['Actual_Close'] = actual_future_values
 
-    train_mse = mean_squared_error(new_y_train, train_predictions)
-    test_mse = mean_squared_error(future_df['Actual_Close'], future_df['Predicted_Close'])
+    # train_mse = mean_squared_error(train_actual, train_predictions)
+    # test_mse = mean_squared_error(future_df['Actual_Close'], future_df['Predicted_Close'])
 
-    print("\nModel Performance Metrics:")
-    print(f"Training MSE: {train_mse:.4f}")
-    print(f"Test MSE: {test_mse:.4f}")
+    # print("\nModel Performance Metrics:")
+    # print(f"Training MSE: {train_mse:.4f}")
+    # print(f"Test MSE: {test_mse:.4f}")
 
     # Plot historical + future predictions
-    plt.figure(figsize=(9, 6))
-    plt.plot(future_df['Date'], future_df['Predicted_Close'], 'r--', label='Future Predictions')
-    plt.plot(future_df['Date'], future_df['Actual_Close'], label='Actual Close')
-    plt.xlabel('Date')
-    plt.ylabel('Close Price')
-    plt.title('Stock Price Prediction - Next 5 Business Days')
-    plt.legend()
-    plt.xticks(rotation=45)
-    plt.tight_layout()
-    plt.savefig('result_LSTM/LSTM_future.png')
+    # plt.figure(figsize=(9, 6))
+    # plt.plot(future_df['Date'], future_df['Predicted_Close'], 'r--', label='Future Predictions')
+    # plt.plot(future_df['Date'], future_df['Actual_Close'], label='Actual Close')
+    # plt.xlabel('Date')
+    # plt.ylabel('Close Price')
+    # plt.title('Stock Price Prediction - Next 5 Business Days')
+    # plt.legend()
+    # plt.xticks(rotation=45)
+    # plt.tight_layout()
+    # plt.savefig('result_LSTM/LSTM_future.png')
 
 if __name__ == '__main__':
     main()
