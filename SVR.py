@@ -17,22 +17,13 @@ for name_idx in range(len(name)):
     data = pd.read_csv(file_path, parse_dates=["Date"], index_col="Date")
     data.columns = ["Adj Close", "Close", "High", "Low", "Open", "Volume"]
 
-    # 計算技術指標
-    data['MA_5'] = data['Close'].rolling(window=5).mean()  # 5日移動平均
-    data['MA_10'] = data['Close'].rolling(window=10).mean()  # 10日移動平均
-    data['RSI'] = ta.rsi(data['Close'], length=14)  # 14日RSI
-    data['Volume_MA_5'] = data['Volume'].rolling(window=5).mean()  # 成交量移動平均
-    data['Price_Range'] = data['High'] - data['Low']  # 日內價格波動幅度
-    data['Daily_Return'] = ((data['Close'] - data['Open']) / data['Open']) * 100  # 日內價格變化率
-    data['Volume_Change'] = data['Volume'].pct_change() * 100  # 交易量變化率
-
     # 移除空值
     data = data.dropna()
     # 僅保留數值列
     data = data.select_dtypes(include=[np.number])  
 
     # 選擇特徵與目標
-    features = ['Close', 'MA_5', 'MA_10', 'RSI', 'Volume_MA_5', 'Price_Range', 'Daily_Return', 'Volume_Change']
+    features = ["Adj Close", "Close", "High", "Low", "Open", "Volume"]
     X = data[features].values
     y = data['Close'].values
 
@@ -41,21 +32,14 @@ for name_idx in range(len(name)):
     X_scaled = scaler.fit_transform(X)
 
     # 分割資料集 (80% training, 10% validation, 10% testing)
-    train_size = int(len(X_scaled) * 0.8)
-    valid_size = int(len(X_scaled) * 0.9)
+    train_size = int(len(X_scaled) * 0.9)
 
     X_train, y_train = X_scaled[:train_size], y[:train_size]
-    X_valid, y_valid = X_scaled[train_size:valid_size], y[train_size:valid_size]
-    X_test, y_test = X_scaled[valid_size:], y[valid_size:]
+    X_test, y_test = X_scaled[train_size:], y[train_size:]
 
     # 訓練SVR模型
     model = SVR(kernel='rbf', C=1e3, gamma=0.1)
     model.fit(X_train, y_train)
-
-    # 驗證模型
-    y_valid_pred = model.predict(X_valid)
-    valid_mse = mean_squared_error(y_valid, y_valid_pred)
-    print(f"Validation MSE: {valid_mse:.4f}")
 
     # 測試模型
     y_test_pred = model.predict(X_test)
