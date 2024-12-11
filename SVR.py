@@ -96,3 +96,8 @@ for name_idx in range(len(name)):
     
 plt.tight_layout()
 plt.show()
+
+# 將未來一周的預測結果存入檔案
+output_file = "SVR_predict.csv"
+future_df.to_csv(output_file, index=False)
+print(f"預測結果已儲存至 {output_file}")
