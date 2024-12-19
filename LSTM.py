@@ -94,7 +94,7 @@ def test_one_epoch(model, test_loader, loss_function, device):
     print()
 
 def main():
-    origin_data = pd.read_csv('/datas/store163/othsueh/stock_predict/AI_project/china_steel_wavelet_reconstructed_only.csv')
+    origin_data = pd.read_csv('/datas/store163/othsueh/stock_predict/AI_project/wavelet_reconstructed/Syscom_wavelet_reconstructed_only.csv')
     # For wavlet datas
     origin_data.rename(columns={'Close Reconstructed': 'Close'}, inplace=True)
     data = origin_data[['Date', 'Close']]
@@ -117,33 +117,33 @@ def main():
 
     # Split the data into train and test
     # toggle the #* line as comment If want to predict future price, use all data as train data
-    # split_index = int(len(X) * 0.9) #*
-    # X_train = X[:split_index]
-    # X_test = X[split_index:] #*
+    split_index = int(len(X) * 0.9) #*
+    X_train = X[:split_index]
+    X_test = X[split_index:] #*
 
-    # y_train = y[:split_index]
-    # y_test = y[split_index:] #*
+    y_train = y[:split_index]
+    y_test = y[split_index:] #*
 
     # For predict future price
-    X_train = X
-    y_train = y
+    # X_train = X
+    # y_train = y
     
     X_train = X_train.reshape((-1, lookback, 1))
-    # X_test = X_test.reshape((-1, lookback, 1)) #*
+    X_test = X_test.reshape((-1, lookback, 1)) #*
     y_train = y_train.reshape((-1, 1))
-    # y_test = y_test.reshape((-1, 1)) #*
+    y_test = y_test.reshape((-1, 1)) #*
 
     X_train = torch.tensor(X_train).float()
     y_train = torch.tensor(y_train).float()
-    # X_test = torch.tensor(X_test).float() #*
-    # y_test = torch.tensor(y_test).float() #*
+    X_test = torch.tensor(X_test).float() #*
+    y_test = torch.tensor(y_test).float() #*
 
     train_dataset = TimeSeriesDataset(X_train, y_train)
-    # test_dataset = TimeSeriesDataset(X_test, y_test) #*
+    test_dataset = TimeSeriesDataset(X_test, y_test) #*
     
     batch_size = 2
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-    # test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False) #*
+    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False) #*
 
     model = LSTM(1,32,2).to(device)
     print(model)
@@ -155,88 +155,88 @@ def main():
 
     for epoch in range(num_epochs):
         train_one_epoch(model, train_loader, loss_function, optimizer, device, epoch)
-    # test_one_epoch(model, test_loader, loss_function, device) 
+    test_one_epoch(model, test_loader, loss_function, device) 
     
     with torch.no_grad():
         train_predicted = model(X_train.to(device)).to('cpu').numpy()
-        # test_predicted = model(X_test.to(device)).to('cpu').numpy() #*
+        test_predicted = model(X_test.to(device)).to('cpu').numpy() #*
 
     train_predictions = train_predicted.flatten()
-    # test_predictions = test_predicted.flatten() #*
+    test_predictions = test_predicted.flatten() #*
 
     dummies = np.zeros((X_train.shape[0], lookback+1))
     dummies[:, 0] = train_predictions
     dummies = scaler.inverse_transform(dummies)
     train_predictions = dc(dummies[:, 0])
 
-    # dummies = np.zeros((X_test.shape[0], lookback+1))
-    # dummies[:, 0] = test_predictions
-    # dummies = scaler.inverse_transform(dummies)
-    # test_predictions = dc(dummies[:, 0])
+    dummies = np.zeros((X_test.shape[0], lookback+1))
+    dummies[:, 0] = test_predictions
+    dummies = scaler.inverse_transform(dummies)
+    test_predictions = dc(dummies[:, 0])
 
     dummies = np.zeros((X_train.shape[0], lookback+1))
     dummies[:, 0] = y_train.flatten()
     dummies = scaler.inverse_transform(dummies)
     train_actual = dc(dummies[:, 0])
     
-    # dummies = np.zeros((X_test.shape[0], lookback+1))
-    # dummies[:, 0] = y_test.flatten()
-    # dummies = scaler.inverse_transform(dummies)
-    # test_actual = dc(dummies[:, 0])
+    dummies = np.zeros((X_test.shape[0], lookback+1))
+    dummies[:, 0] = y_test.flatten()
+    dummies = scaler.inverse_transform(dummies)
+    test_actual = dc(dummies[:, 0])
 
     dates = shifted_df.index
-    # train_dates = dates[:split_index]
-    # test_dates = dates[split_index:]
+    train_dates = dates[:split_index]
+    test_dates = dates[split_index:]
 
-    # plt.figure(figsize=(9, 6))
+    plt.figure(figsize=(9, 6))
     # plt.plot(train_dates, train_actual, label='Train Actual')
     # plt.plot(train_dates, train_predictions, label='Train Predicted')
-    # plt.plot(test_dates, test_actual, label='Test Actual')
-    # plt.plot(test_dates, test_predictions, label='Test Predicted')
-    # plt.xlabel('Date')
-    # plt.ylabel('Close Price')
-    # plt.title('Stock Price Prediction - Testing Results')
-    # plt.legend()
-    # plt.xticks(rotation=45)
-    # plt.tight_layout()
-    # plt.savefig('result_LSTM/LSTM_test.png')
+    plt.plot(test_dates, test_actual, label='Test Actual')
+    plt.plot(test_dates, test_predictions, label='Test Predicted')
+    plt.xlabel('Date')
+    plt.ylabel('Close Price')
+    plt.title('Stock Price Prediction - Testing Results')
+    plt.legend()
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    plt.savefig('result_LSTM/LSTM_test.png')
+    
+    # # Get the last 7 days of data to use as input for future predictions
+    # last_7_days = X_train[-1:].to(device)  # Shape: [1, 7, 1]
 
-    # Get the last 7 days of data to use as input for future predictions
-    last_7_days = X_train[-1:].to(device)  # Shape: [1, 7, 1]
+    # # Generate future dates (skip weekends)
+    # last_date = data['Date'].iloc[-1]  # This is Friday, 2024-12-06
+    # future_dates = pd.bdate_range(start=last_date + pd.Timedelta(days=1), periods=5, freq='B')
+    # # This will give us the next 5 business days: Mon, Tue, Wed, Thu, Fri
 
-    # Generate future dates (skip weekends)
-    last_date = data['Date'].iloc[-1]  # This is Friday, 2024-12-06
-    future_dates = pd.bdate_range(start=last_date + pd.Timedelta(days=1), periods=5, freq='B')
-    # This will give us the next 5 business days: Mon, Tue, Wed, Thu, Fri
+    # # Predict next 7 business days
+    # future_predictions = []
+    # current_input = last_7_days.clone()
 
-    # Predict next 7 business days
-    future_predictions = []
-    current_input = last_7_days.clone()
-
-    with torch.no_grad():
-        for _ in range(5):
-            # Get prediction for next day
-            next_pred = model(current_input)
-            future_predictions.append(next_pred.item())
+    # with torch.no_grad():
+    #     for _ in range(5):
+    #         # Get prediction for next day
+    #         next_pred = model(current_input)
+    #         future_predictions.append(next_pred.item())
             
-            # Update input sequence by removing oldest prediction and adding new one
-            current_input = current_input.roll(-1, dims=1)
-            current_input[0, -1, 0] = next_pred
+    #         # Update input sequence by removing oldest prediction and adding new one
+    #         current_input = current_input.roll(-1, dims=1)
+    #         current_input[0, -1, 0] = next_pred
 
-    # Convert predictions back to original scale
-    dummy_array = np.zeros((len(future_predictions), lookback+1))
-    dummy_array[:, 0] = future_predictions
-    future_predictions_unscaled = scaler.inverse_transform(dummy_array)[:, 0]
+    # # Convert predictions back to original scale
+    # dummy_array = np.zeros((len(future_predictions), lookback+1))
+    # dummy_array[:, 0] = future_predictions
+    # future_predictions_unscaled = scaler.inverse_transform(dummy_array)[:, 0]
 
-    # Create prediction results dataframe
-    future_df = pd.DataFrame({
-        'Date': future_dates,
-        'Predicted Close': future_predictions_unscaled
-    })
+    # # Create prediction results dataframe
+    # future_df = pd.DataFrame({
+    #     'Date': future_dates,
+    #     'Predicted Close': future_predictions_unscaled
+    # })
 
-    print("Future 5 business days predictions:")
-    print(future_df)
-    future_df.to_csv('result_LSTM/ChinaSteel_predict.csv', index=False)
+    # print("Future 5 business days predictions:")
+    # print(future_df)
+    # future_df.to_csv('result_LSTM/ChinaSteel_predict.csv', index=False)
 
     # Calculate and print MSE for training and test sets
     # actual_future_values = [22.5, 22.5, 22.5, 22.5, 22.5]  # Actual future values for next 5 business days
